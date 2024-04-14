@@ -1,0 +1,472 @@
+<!--
+	此示例下载自 https://echarts.apache.org/examples/zh/editor.html?c=gauge-temperature
+-->
+<!DOCTYPE html>
+<html lang="en" style="height: 100%">
+<head>
+  <meta charset="utf-8">
+  <title>地球守望者</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-F3w7mX95PdgyTmZZMECAngseQB83DfGTowi0iMjiWaeVhAn4FJkqJByhZMI3AhiU" crossorigin="anonymous">
+  <script src="https://cdn.staticfile.org/jquery/2.2.4/jquery.min.js"></script>
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=default"></script>
+</head>
+<body style="height: 100%; margin: 0px; padding: 10px 0px; width: 98%;">
+  <div class="content">
+    <div class="row">
+      <div class="col-md-6 col-xs-12">
+        <h3 style="padding-left: 20px">Boats Dashboard</h3>
+      </div>
+      <div class="col-md-6 col-xs-12">
+        <button type="button" onclick="exportExcel()" class="btn btn-success" style="float: right; padding-right: 20px">Export Excel</button>
+
+        <div class="btn-group" style="float: right; margin-right: 20px" role="group">
+          <button type="button" id="gaugeBTN" onclick="switchChart('gauge')" class="btn btn-primary" >儀表圖</button>
+          <button type="button" id="trendBTN" onclick="switchChart('trend')" class="btn btn-outline-primary" >趨勢圖</button>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div id="div1" class="col-md-6 text-center">
+        <div id="temperature" style="height: 100%; width: 100%"></div>
+      </div>
+      <div class="col-md-6">
+        <div id="ph" style="height: 100%"></div>
+      </div>
+      <div class="col-md-6">
+        <div id="ec" style="height: 100%"></div>
+      </div>
+      <div class="col-md-6" style="min-height: 250px;">
+        <table class="table">
+          <tbody>
+            <tr>
+              <th>緯度</th>
+              <td id="latTD"></td>
+              <th>經度</th>
+              <td id="lngTD">
+                <button type="button" onclick="refreshMap()" class="btn btn-primary">Refresh Map</button>
+              </td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+        <div id="map" style="height: 70%;" ></div>
+      </div>
+    </div>
+  </div>
+  
+  
+  
+  <script type="text/javascript" src="https://registry.npmmirror.com/echarts/5.4.3/files/dist/echarts.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/3.3.1/exceljs.js" ></script>
+  <!-- Uncomment this line if you want to dataTool extension
+  <script type="text/javascript" src="https://registry.npmmirror.com/echarts/5.4.3/files/dist/extension/dataTool.min.js"></script>
+  -->
+  <!-- Uncomment this line if you want to use gl extension
+  <script type="text/javascript" src="https://registry.npmmirror.com/echarts-gl/2/files/dist/echarts-gl.min.js"></script>
+  -->
+  <!-- Uncomment this line if you want to echarts-stat extension
+  <script type="text/javascript" src="https://registry.npmmirror.com/echarts-stat/latest/files/dist/ecStat.min.js"></script>
+  -->
+  <!-- Uncomment this line if you want to use map
+  <script type="text/javascript" src="https://registry.npmmirror.com/echarts/4.9.0/files/map/js/china.js"></script>
+  <script type="text/javascript" src="https://registry.npmmirror.com/echarts/4.9.0/files/map/js/world.js"></script>
+  -->
+  <!-- Uncomment these two lines if you want to use bmap extension
+  <script type="text/javascript" src="https://api.map.baidu.com/api?v=3.0&ak=YOUR_API_KEY"></script>
+  <script type="text/javascript" src="https://registry.npmmirror.com/echarts/5.4.3/files/dist/extension/bmap.min.js"></script>
+  -->
+
+  <script type="text/javascript">
+
+    (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({key: "AIzaSyA_DFLhsE6OSIhIIrWeyBu0r9p-GSB-zME", v: "weekly"});
+
+    var list = ['temperature', 'ph', 'ec'];
+    var params = ['T', 'PH', 'EC'];
+    var titles = ['Temperature', 'pH Value','Electronic Conductivity'];
+    var formatters = ['°C', '', 'μS/cm']
+    var len = list.length;
+    var myCharts = [];
+    // gauge options
+    var options = [];
+    var allData = [];
+    var xDataList = [];
+    var yDataList = [[], [], []];
+    // gauge or line
+    var chartType = 'gauge';
+    
+    // chart width
+    var width = $('#div1').width() * 0.7;
+    // chart height
+    var height = width * 0.6;
+    var showMap = false;
+    // 緯度
+    var lat = -34.397;
+    // 經度
+    var lng = 150.644;
+    // max Temperature
+    var maxNumbers = [50, 14, 1600];
+    var splitNumbers = [10, 14, 16];
+    var splitTick = [5, 2, 2];
+    var colors =  [[[20 / maxNumbers[0], '#b2c5ff'],[30 / maxNumbers[0], '#3dff78'],[50 / maxNumbers[0], '#ff3c58']],
+                  [[6 / maxNumbers[1], '#ff3c58'],[8 / maxNumbers[1], '#3dff78'],[14 / maxNumbers[1], '#5876ff']],
+                  [[750 / maxNumbers[2], '#3dff78'],[1600 / maxNumbers[2], '#ff3c58']]];
+
+    
+
+    function initGauge() {
+      myCharts.length = 0;
+      for (let i = 0; i < len; i++) {
+        console.log(colors[i]);
+        var option = {
+          title: {
+            text: titles[i],
+            textStyle: {
+              color: '#727272',
+			  fontSize: (window.innerWidth < 600 ? 14 : 20)
+            },
+            x: 'center',
+            y: 'top'
+          },
+          //margin: [300, 50],
+          series: [
+            {
+              type: 'gauge',
+              center: ['50%', '70%'],
+              startAngle: 200,
+              endAngle: -20,
+              radius: height * 0.6,
+              min: 0,
+              max: maxNumbers[i],
+              splitNumber: splitNumbers[i],
+              itemStyle: {
+                color: '#000000'
+              },
+              progress: {
+                show: false,
+                width: 30,
+              },
+              pointer: {
+                show: true,
+                icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
+                width: '8%',
+                length: '40%',
+                offsetCenter: [0, '-35%'],
+                itemStyle: {
+                  color: '#5470c6'
+                }
+              },
+              axisLine: {
+                lineStyle: {
+                  width: 10,
+                  color: colors[i]
+                }              
+              },
+              axisTick: {
+                distance: 0,
+                splitNumber: splitTick[i],
+                lineStyle: {
+                  width: 2,
+                  color: '#727272'
+                }
+              },
+              splitLine: {
+                distance: 0,
+                length: 10,
+                lineStyle: {
+                  width: 3,
+                  color: '#727272'
+                }
+              },
+              axisLabel: {
+                distance: 15,
+                color: '#727272',
+                fontSize: (window.innerWidth < 600 ? 12 : 15)
+              },
+              anchor: {
+                show: false
+              },
+              title: {
+                show: false
+              },
+              detail: {
+                valueAnimation: true,
+                width: '100%',
+                lineHeight: 40,
+                borderRadius: 8,
+                offsetCenter: [0, '30%'],
+                fontSize: (window.innerWidth < 600 ? 14 : 26),
+                fontWeight: 'bolder',
+                formatter: '{value} ' + formatters[i],
+                color: 'inherit'
+              },
+              data: [
+                {
+                  value: 0
+                }
+              ]
+            }
+          ]
+        };
+        
+        options.push(option);
+
+        var dom = document.getElementById(list[i]);
+        var myChart = echarts.init(dom, null, {
+          renderer: 'canvas',
+          useDirtyRect: false,
+          //width: width,
+          height: height
+        });
+        myCharts.push(myChart);
+        myCharts[i].setOption(option, true);
+      }
+    }
+
+    function initTrend() {
+      myCharts.length = 0;
+      for (let i = 0; i < len; i++) {
+
+        var trendOption = {
+          title: {
+            text: titles[i],
+            textStyle: {
+              color: '#727272'
+            },
+            x: 'center',
+            y: 'top'
+          },
+          xAxis: {
+            type: 'category',
+            data: []
+          },
+          yAxis: {
+            type: 'value',
+            name: formatters[i]
+          },
+          series: [
+            {
+              data: [],
+              type: 'line'
+            }
+          ]
+        };
+        options.push(trendOption);
+
+        var dom = document.getElementById(list[i]);
+        var myChart = echarts.init(dom, null, {
+          renderer: 'canvas',
+          useDirtyRect: false,
+          width: width,
+          height: height
+        });
+        myCharts.push(myChart);
+        myCharts[i].setOption(trendOption, true);
+      }
+    }
+
+
+    let map;
+
+    async function initMap() {
+      //@ts-ignore
+      if (!showMap) {
+        showMap = true;
+        const { Map } = await google.maps.importLibrary("maps");
+        map = new Map(document.getElementById("map"), {
+          center: { lat: lat, lng: lng },
+          zoom: 18,
+        });
+        new google.maps.Marker({
+          position: { lat: lat, lng: lng },
+          map,
+          title: "AIWQMB",
+        });
+
+      }
+      
+    }
+
+    if (chartType === 'gauge') {
+      initGauge();
+    } else {
+      initTrend();
+    }
+
+    function getData() {
+      $.ajax({
+        url: "http://218.161.55.77:3000/AI/1",
+        method: "GET",
+        dataType: "json",
+        error: function(err) {
+          console.log(err);
+        },
+        success: function(res) {
+          console.log(res);
+          var data = res;
+          var date = new Date();
+          data['date'] = date.getFullYear()+'/'+(date.getMonth()+1)+'/'+date.getDate()+' '+date.getHours()+':'+date.getMinutes()+':'+date.getSeconds();
+          console.log(data['date']);
+          allData.push(data);
+
+          xDataList.push(data['date']);
+          for (let i = 0; i < len; i++) {
+            yDataList[i].push(res[params[i]]);
+          }
+          
+          if (chartType === 'gauge') {
+            for (let i = 0; i < len; i++) {
+              myCharts[i].setOption({
+                series: [
+                  {
+                    data: [
+                      {
+                        value: res[params[i]]
+                      }
+                    ]
+                  },
+                  {
+                    data: [
+                      {
+                        value: res[params[i]]
+                      }
+                    ]
+                  }
+                ]
+              });
+            }
+          } else {
+            // trend
+            for (let i = 0; i < len; i++) {
+              myCharts[i].setOption({
+                xAxis: {
+                  type: 'category',
+                  data: xDataList
+                },
+                series: [
+                  {
+                    data: yDataList[i]
+                  }
+                ]
+              });
+            }
+            
+          }
+          
+
+          // GPS
+          //var gpsAry = res['GPS'].split(',');
+
+          lat = res['GPS'][0];//Number(gpsAry[0]);
+          lng = res['GPS'][1];//Number(gpsAry[2]);
+          $('#latTD').html(lat);
+          $('#lngTD').html(lng);
+          initMap();
+        }
+      });
+    }
+
+    getData();
+    
+    setInterval(function () {
+      //var tem;
+      getData()
+    }, 7919);
+
+    function refreshMap() {
+      showMap = true;//false;
+    }
+
+    function exportExcel() {
+      var workbook = new ExcelJS.Workbook();
+      var sheet = workbook.addWorksheet('sheet', { state: 'visible' });
+      var rows = [[]];
+      for (var item of allData) {
+        rows.push([item.date, item.T, item.PH, item.EC, item.GPS]);
+      }
+
+      sheet.addTable({
+        name: 'table',  // 表格內看不到的，算是key值，讓你之後想要針對這個table去做額外設定的時候，可以指定到這個table
+        ref: 'A1', // 從A1開始
+        columns: [
+          {name: "Date"},
+          {name: titles[0]},
+          {name: titles[1]},
+          {name: titles[2]},
+          {name: "GPS"}
+        ],
+        rows: rows
+      });
+
+      const canvas_temperature = document.getElementById("temperature");
+      const canvas1 = canvas_temperature.querySelector('canvas');
+      const dataURL1 = canvas1.toDataURL();
+      const canvas_ph = document.getElementById("ph");
+      const canvas2 = canvas_ph.querySelector('canvas');
+      const dataURL2 = canvas2.toDataURL();
+      const canvas_ec = document.getElementById("ec");
+      const canvas3 = canvas_ec.querySelector('canvas');
+      const dataURL3 = canvas3.toDataURL();
+
+      const imageId1 = workbook.addImage({
+        base64: dataURL1,
+        extension: 'png'
+      });
+      sheet.addImage(imageId1,{
+        ext: { width: 500, height: 200 },
+        tl: { col: 6, row: 0 }
+      });
+      const imageId2 = workbook.addImage({
+        base64: dataURL2,
+        extension: 'png'
+      });
+      sheet.addImage(imageId2,{
+        ext: { width: 500, height: 200 },
+        tl: { col: 15, row: 0 }
+      });
+      const imageId3 = workbook.addImage({
+        base64: dataURL3,
+        extension: 'png'
+      });
+      sheet.addImage(imageId3,{
+        ext: { width: 500, height: 200 },
+        tl: { col: 6, row: 10 }
+      });
+
+      workbook.xlsx.writeBuffer().then((content) => {
+        var link = document.createElement("a");
+        var blobData = new Blob([content], {
+          type: "application/vnd.ms-excel;charset=utf-8;"
+        });
+        link.download = 'Temperature.xlsx';
+        link.href = URL.createObjectURL(blobData);
+        link.click();
+      });
+    }
+
+    function switchChart(chart) {
+      chartType = chart;
+      if (chartType === 'gauge') {
+        $('#gaugeBTN').attr('class', 'btn btn-primary');
+        $('#trendBTN').attr('class', 'btn btn-outline-primary');
+        initGauge();
+      } else {
+        $('#gaugeBTN').attr('class', 'btn btn-outline-primary');
+        $('#trendBTN').attr('class', 'btn btn-primary');
+        initTrend();
+      }
+      getData();
+    }
+	
+	function resize() {
+		for (let i = 0; i < len; i++) {
+			myCharts[i].resize({
+				height: $('#div1').width() * 0.7 * 0.6
+			});
+		}
+	}
+
+    window.addEventListener('resize', resize);
+  </script>
+</body>
+</html>
