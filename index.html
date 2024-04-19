@@ -55,8 +55,29 @@
     </div>
   </div>
   
+  <div id="modal" class="modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Warning</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <p id="msgBody"></p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
   
   
+  
+  <script type="text/javascript" src="js/bootstrap.bundle.js"></script>
   <script type="text/javascript" src="js/echarts.min.js"></script>
   <script src="js/exceljs.js" ></script>
   <!-- Uncomment this line if you want to dataTool extension
@@ -105,12 +126,12 @@
     // 經度
     var lng = 150.644;
     // max Temperature
-    var maxNumbers = [50, 14, 1600];
-    var splitNumbers = [10, 14, 16];
+    var maxNumbers = [50, 14, 1800];
+    var splitNumbers = [10, 14, 12];
     var splitTick = [5, 2, 2];
-    var colors =  [[[20 / maxNumbers[0], '#b2c5ff'],[30 / maxNumbers[0], '#3dff78'],[50 / maxNumbers[0], '#ff3c58']],
-                  [[6 / maxNumbers[1], '#ff3c58'],[8 / maxNumbers[1], '#3dff78'],[14 / maxNumbers[1], '#5876ff']],
-                  [[750 / maxNumbers[2], '#3dff78'],[1600 / maxNumbers[2], '#ff3c58']]];
+    var colors =  [[[20 / maxNumbers[0], '#b2c5ff'],[35 / maxNumbers[0], '#3dff78'],[50 / maxNumbers[0], '#ff3c58']],
+                  [[6 / maxNumbers[1], '#ff3c58'],[9 / maxNumbers[1], '#3dff78'],[14 / maxNumbers[1], '#5876ff']],
+                  [[750 / maxNumbers[2], '#3dff78'],[1800 / maxNumbers[2], '#ff3c58']]];
 
     
 
@@ -308,10 +329,31 @@
           data['date'] = date.getFullYear()+'/'+(date.getMonth()+1)+'/'+date.getDate()+' '+date.getHours()+':'+date.getMinutes()+':'+date.getSeconds();
           console.log(data['date']);
           allData.push(data);
-
+          var message = '';
           xDataList.push(data['date']);
           for (let i = 0; i < len; i++) {
             yDataList[i].push(res[params[i]]);
+            console.log(res[params[i]]);
+            if (i == 0) {
+              if (res[params[i]]>=35) {
+                message += '▲ 水溫注意<br>';
+              }
+            }
+            else if (i == 1) {
+              if (res[params[i]]>=9 || res[params[i]]<=6) {
+                message += '▲ 酸鹼度注意<br>';
+              }
+            }
+            else if (i == 2) {
+              if (res[params[i]]>=750) {
+                message += '▲ 電導度注意<br>';
+                
+              }
+            }
+          }
+          if (message !== '') {
+            message += '請派員處理上述情形！<br>';
+            showMessage(message);
           }
           
           if (chartType === 'gauge') {
@@ -458,13 +500,22 @@
       getData();
     }
 	
-	function resize() {
-		for (let i = 0; i < len; i++) {
-			myCharts[i].resize({
-				height: $('#div1').width() * 0.7 * 0.6
-			});
-		}
-	}
+    function resize() {
+      for (let i = 0; i < len; i++) {
+        myCharts[i].resize({
+          height: $('#div1').width() * 0.7 * 0.6
+        });
+      }
+    }
+
+    function showMessage(message) {
+      $('#msgBody').html(message);
+      $('#modal').modal();
+    }
+
+    function closeMessage() {
+      $('#modal').hide();
+    }
 
     window.addEventListener('resize', resize);
   </script>
